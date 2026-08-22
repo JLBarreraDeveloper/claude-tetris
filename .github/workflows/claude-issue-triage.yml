@@ -94,6 +94,14 @@ jobs:
 
             FORMATO DEL COMENTARIO (en español, empezando exactamente con este marcador):
 
+            El cuerpo del comentario debe estar escrito en Markdown válido de GitHub
+            (GitHub Flavored Markdown), de forma que GitHub lo renderice correctamente:
+            encabezados con `##`, negritas con `**...**`, listas con `-` o `1.`, código
+            inline entre backticks y bloques de código con ```` ```js ```` … ```` ``` ````.
+            No uses HTML salvo el comentario marcador inicial, no escapes los caracteres
+            de Markdown y respeta las líneas en blanco entre bloques (GitHub no junta
+            párrafos ni listas sin ellas).
+
             <!-- claude-triage -->
             ## Diagnóstico automático
 
@@ -126,6 +134,9 @@ jobs:
             REGLAS
 
             - Escribe todo en español; el código y los identificadores en su idioma original.
+            - Todo lo que publiques como comentario debe ser Markdown que GitHub entienda
+              y renderice bien; antes de publicar, relee el fichero y comprueba que los
+              bloques de código están cerrados y las listas/encabezados bien formados.
             - No modifiques ficheros del repositorio, no abras PRs y no cierres el issue.
             - No edites el título ni el cuerpo del issue (dispararía este workflow en bucle).
             - Sé concreto y honesto: si tras leer el código no puedes determinar la causa,
