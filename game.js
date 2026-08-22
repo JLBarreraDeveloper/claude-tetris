@@ -148,10 +148,11 @@ function lockPiece() {
 function spawn() {
   current = next;
   next = randomPiece();
+  drawNext();
   if (collide(current.shape, current.x, current.y)) {
     endGame();
+    return;
   }
-  drawNext();
 }
 
 function updateHUD() {
@@ -216,6 +217,9 @@ function draw() {
     for (let c = 0; c < COLS; c++)
       drawBlock(ctx, c, r, board[r][c], BLOCK);
 
+  // partida terminada: solo el tablero final
+  if (gameOver) return;
+
   // ghost
   const gy = ghostY();
   for (let r = 0; r < current.shape.length; r++)
@@ -243,6 +247,7 @@ function drawNext() {
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
+  animId = null;
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   overlay.classList.remove('hidden');
@@ -263,6 +268,7 @@ function togglePause() {
 }
 
 function loop(ts) {
+  if (gameOver || paused) return;
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
@@ -275,6 +281,8 @@ function loop(ts) {
     }
   }
   draw();
+  // lockPiece pudo terminar la partida en este mismo frame
+  if (gameOver || paused) return;
   animId = requestAnimationFrame(loop);
 }
 
