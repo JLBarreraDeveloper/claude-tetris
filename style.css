@@ -25,6 +25,8 @@
   --restart-hover: #9bbdff;
   --toggle-bg: #22223a;
   --toggle-border: #3a3a5a;
+  --powerup-color: #ffd54f;
+  --powerup-frozen: #4dd0e1;
 }
 
 :root.light-theme {
@@ -48,6 +50,8 @@
   --restart-hover: #5c7cfa;
   --toggle-bg: #e4e4ee;
   --toggle-border: #c8c8d8;
+  --powerup-color: #b26a00;
+  --powerup-frozen: #00838f;
 }
 
 body {
@@ -138,6 +142,18 @@ body {
   font-weight: 700;
   color: var(--panel-value);
   letter-spacing: 1px;
+}
+
+#powerup-badge {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--powerup-color);
+  min-height: 20px;
+}
+
+#powerup-badge.frozen {
+  color: var(--powerup-frozen);
 }
 
 #next-canvas {

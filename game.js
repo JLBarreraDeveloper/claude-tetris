@@ -31,6 +31,29 @@ const LINE_SCORES = [0, 100, 300, 500, 800];
 const GRID_COLORS = { dark: '#22222e', light: '#d8d8e5' };
 const THEME_KEY = 'tetris-theme';
 
+// ---- power-ups: toda la configuracion en un unico objeto ----
+const PU = {
+  linesPerPowerup: 10,    // N lineas entre apariciones
+  bombRadius: 1,          // 1 => area 3x3
+  freezeMs: 5000,         // duracion de Congelar
+  cascadeMultiplier: 1.5, // acumulativo por cascada
+  gravityMode: 'column',  // 'column' (no sticky) | 'sticky'
+  maxCascades: 20,        // cinturon de seguridad anti-bucle
+  fxMs: 400,              // duracion maxima de la animacion
+  sound: true,
+};
+
+const PU_BOMBA = 1, PU_RAYO = 2, PU_TINTE = 3, PU_GRAVEDAD = 4, PU_CONGELAR = 5;
+
+const POWERUPS = [
+  null,
+  { id: PU_BOMBA,    icon: '💣', name: 'Bomba',    tone: [180, 60,   'sawtooth'] },
+  { id: PU_RAYO,     icon: '⚡', name: 'Rayo',     tone: [900, 200,  'square'] },
+  { id: PU_TINTE,    icon: '🎨', name: 'Tinte',    tone: [520, 780,  'triangle'] },
+  { id: PU_GRAVEDAD, icon: '⬇',  name: 'Gravedad', tone: [700, 120,  'sine'] },
+  { id: PU_CONGELAR, icon: '❄',  name: 'Congelar', tone: [400, 1200, 'sine'] },
+];
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
@@ -38,22 +61,68 @@ const nextCtx = nextCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
+const powerupEl = document.getElementById('powerup-badge');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, marks, wilds, current, next, score, lines, level, paused, gameOver;
+let lastTime, dropAccum, dropInterval, animId;
+let linesSincePU, lastPUType, puPending, freezeLeft, fx;
+let audioCtx = null;
 
-function createBoard() {
-  return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+function createGrid(fill) {
+  return Array.from({ length: ROWS }, () => new Array(COLS).fill(fill));
 }
 
 function randomPiece() {
   const type = Math.floor(Math.random() * 7) + 1;
   const shape = PIECES[type].map(row => [...row]);
-  return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+  const piece = {
+    type,
+    shape,
+    marks: shape.map(row => row.map(() => 0)),
+    x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2),
+    y: 0,
+  };
+  maybeMarkPiece(piece);
+  return piece;
+}
+
+// marca uno de los bloques de la pieza si toca aparicion de power-up
+function maybeMarkPiece(piece) {
+  if (puPending || linesSincePU < PU.linesPerPowerup) return;
+
+  const types = POWERUPS.length - 1;
+  let type = lastPUType;
+  while (type === lastPUType) type = Math.floor(Math.random() * types) + 1;
+
+  const cells = [];
+  for (let r = 0; r < piece.shape.length; r++)
+    for (let c = 0; c < piece.shape[r].length; c++)
+      if (piece.shape[r][c]) cells.push([r, c]);
+  const [mr, mc] = cells[Math.floor(Math.random() * cells.length)];
+
+  piece.marks[mr][mc] = type;
+  linesSincePU -= PU.linesPerPowerup;
+  lastPUType = type;
+  puPending = type;
+  updatePowerupHUD();
+}
+
+function hasMark(grid) {
+  return grid.some(row => row.some(v => v !== 0));
+}
+
+// libera el hueco de power-up cuando la marca ya no existe en ninguna parte
+function refreshPending() {
+  if (!puPending) return;
+  if (hasMark(marks)) return;
+  if (current && hasMark(current.marks)) return;
+  if (next && hasMark(next.marks)) return;
+  puPending = 0;
 }
 
 function collide(shape, ox, oy) {
@@ -80,10 +149,12 @@ function rotateCW(shape) {
 
 function tryRotate() {
   const rotated = rotateCW(current.shape);
+  const rotatedMarks = rotateCW(current.marks);
   const kicks = [0, -1, 1, -2, 2];
   for (const kick of kicks) {
     if (!collide(rotated, current.x + kick, current.y)) {
       current.shape = rotated;
+      current.marks = rotatedMarks; // la marca viaja con su bloque
       current.x += kick;
       return;
     }
@@ -91,30 +162,168 @@ function tryRotate() {
 }
 
 function merge() {
-  for (let r = 0; r < current.shape.length; r++)
-    for (let c = 0; c < current.shape[r].length; c++)
-      if (current.shape[r][c])
-        board[current.y + r][current.x + c] = current.shape[r][c];
-}
-
-function clearLines() {
-  let cleared = 0;
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (board[r].every(v => v !== 0)) {
-      board.splice(r, 1);
-      board.unshift(new Array(COLS).fill(0));
-      cleared++;
-      r++;
+  for (let r = 0; r < current.shape.length; r++) {
+    for (let c = 0; c < current.shape[r].length; c++) {
+      if (!current.shape[r][c]) continue;
+      board[current.y + r][current.x + c] = current.shape[r][c];
+      marks[current.y + r][current.x + c] = current.marks[r][c];
+      current.marks[r][c] = 0; // la marca pasa a ser del tablero
     }
   }
-  if (cleared) {
-    lines += cleared;
-    score += (LINE_SCORES[cleared] || 0) * level;
+}
+
+// ---- power-ups: resolucion ----
+
+function clearCell(r, c) {
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+  board[r][c] = 0;
+  marks[r][c] = 0;
+  wilds[r][c] = false;
+}
+
+function fullRows() {
+  const rows = [];
+  for (let r = 0; r < ROWS; r++) if (board[r].every(v => v !== 0)) rows.push(r);
+  return rows;
+}
+
+// elimina filas ya vaciadas; en orden ascendente los indices restantes no se mueven
+function collapseRows(rows) {
+  for (const r of [...rows].sort((a, b) => a - b)) {
+    board.splice(r, 1); board.unshift(new Array(COLS).fill(0));
+    marks.splice(r, 1); marks.unshift(new Array(COLS).fill(0));
+    wilds.splice(r, 1); wilds.unshift(new Array(COLS).fill(false));
+  }
+}
+
+// gravedad por columna: cada bloque cae hasta apoyarse, sin arrastrar vecinos
+function compactColumns() {
+  for (let c = 0; c < COLS; c++) {
+    let write = ROWS - 1;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (!board[r][c]) continue;
+      if (write !== r) {
+        board[write][c] = board[r][c];
+        marks[write][c] = marks[r][c];
+        wilds[write][c] = wilds[r][c];
+        board[r][c] = 0; marks[r][c] = 0; wilds[r][c] = false;
+      }
+      write--;
+    }
+  }
+}
+
+function applyEffect(t) {
+  switch (t.type) {
+    case PU_BOMBA: {
+      const R = PU.bombRadius;
+      for (let dr = -R; dr <= R; dr++)
+        for (let dc = -R; dc <= R; dc++)
+          clearCell(t.r + dr, t.c + dc);
+      break;
+    }
+    case PU_RAYO:
+      for (let c = 0; c < COLS; c++) clearCell(t.r, c);
+      for (let r = 0; r < ROWS; r++) clearCell(r, t.c);
+      break;
+    case PU_TINTE:
+      if (!t.color) break;
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          if (board[r][c] === t.color) wilds[r][c] = true;
+      break;
+    case PU_GRAVEDAD:
+      break; // se aplica despues del colapso, en resolveClears
+    case PU_CONGELAR:
+      freezeLeft = PU.freezeMs; // reinicia, no acumula
+      break;
+  }
+}
+
+// line clear normal -> efecto -> gravedad/colapso -> puntuacion, con cascadas
+function resolveClears() {
+  let cascade = 0, totalCleared = 0, gained = 0;
+
+  while (cascade < PU.maxCascades) {
+    const full = fullRows();
+    if (!full.length) break;
+
+    // power-ups disparados (defensivo: puede haber mas de uno), izquierda -> derecha
+    const trig = [];
+    for (const r of full)
+      for (let c = 0; c < COLS; c++)
+        if (marks[r][c]) trig.push({ r, c, type: marks[r][c], color: board[r][c] });
+    trig.sort((a, b) => a.c - b.c);
+
+    // vaciar sin colapsar: las coordenadas de origen siguen siendo validas
+    for (const r of full)
+      for (let c = 0; c < COLS; c++) clearCell(r, c);
+
+    let gravity = false;
+    for (const t of trig) {
+      applyEffect(t);
+      pushFx(t);
+      playPowerupSound(t.type);
+      if (t.type === PU_GRAVEDAD) gravity = true;
+    }
+
+    collapseRows(full);
+    if (gravity) compactColumns();
+
+    const mult = Math.pow(PU.cascadeMultiplier, cascade);
+    gained += Math.round((LINE_SCORES[Math.min(full.length, 4)] || 0) * level * mult);
+    totalCleared += full.length;
+    cascade++;
+  }
+
+  if (totalCleared) {
+    score += gained;
+    lines += totalCleared;
+    linesSincePU += totalCleared;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    refreshPending();
     updateHUD();
   }
 }
+
+// ---- feedback ----
+
+function pushFx(t) {
+  fx.push({ type: t.type, r: t.r, c: t.c, color: t.color, start: performance.now() });
+}
+
+function audio() {
+  if (!PU.sound) return null;
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playPowerupSound(type) {
+  const pu = POWERUPS[type];
+  const ac = audio();
+  if (!ac || !pu) return;
+  const [f0, f1, wave] = pu.tone;
+  const t0 = ac.currentTime;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = wave;
+  osc.frequency.setValueAtTime(f0, t0);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t0 + 0.18);
+  gain.gain.setValueAtTime(0.18, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + 0.22);
+}
+
+// ---- juego ----
 
 function ghostY() {
   let gy = current.y;
@@ -141,7 +350,7 @@ function softDrop() {
 
 function lockPiece() {
   merge();
-  clearLines();
+  resolveClears();
   spawn();
 }
 
@@ -155,10 +364,23 @@ function spawn() {
   }
 }
 
+function updatePowerupHUD() {
+  if (!powerupEl) return;
+  if (freezeLeft > 0) {
+    powerupEl.textContent = `${POWERUPS[PU_CONGELAR].icon} ${(freezeLeft / 1000).toFixed(1)}s`;
+    powerupEl.classList.add('frozen');
+    return;
+  }
+  powerupEl.classList.remove('frozen');
+  const pu = POWERUPS[puPending];
+  powerupEl.textContent = pu ? `${pu.icon} ${pu.name}` : '—';
+}
+
 function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
   linesEl.textContent = lines;
   levelEl.textContent = level;
+  updatePowerupHUD();
 }
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
@@ -170,6 +392,56 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   // highlight
   context.fillStyle = 'rgba(255,255,255,0.12)';
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  context.globalAlpha = 1;
+}
+
+// marca de power-up y/o comodin sobre una celda ya pintada
+function drawDecor(context, x, y, size, mark, wild, alpha) {
+  if (!mark && !wild) return;
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  const a = alpha ?? 1;
+  context.save();
+
+  if (wild) {
+    // trama diagonal recortada a la celda
+    context.save();
+    context.beginPath();
+    context.rect(px, py, s, s);
+    context.clip();
+    context.globalAlpha = a * 0.35;
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 1;
+    context.beginPath();
+    for (let o = -s; o < s * 2; o += 6) {
+      context.moveTo(px + o, py + s);
+      context.lineTo(px + o + s, py);
+    }
+    context.stroke();
+    context.restore();
+
+    context.globalAlpha = a * 0.9;
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 2;
+    context.setLineDash([4, 3]);
+    context.strokeRect(px + 1, py + 1, s - 2, s - 2);
+    context.setLineDash([]);
+  }
+
+  if (mark) {
+    const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 180);
+    context.globalAlpha = a * pulse;
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 2;
+    context.strokeRect(px + 1, py + 1, s - 2, s - 2);
+    context.globalAlpha = a;
+    context.font = `${Math.floor(size * 0.6)}px system-ui, sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = '#ffffff';
+    context.fillText(POWERUPS[mark].icon, px + s / 2, py + s / 2 + 1);
+  }
+
+  context.restore();
   context.globalAlpha = 1;
 }
 
@@ -208,29 +480,94 @@ function drawGrid() {
   }
 }
 
+// animaciones de power-up: no bloquean el input, se descartan solas al expirar
+function drawFx() {
+  if (!fx.length) return;
+  const now = performance.now();
+  const W = COLS * BLOCK, H = ROWS * BLOCK;
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i];
+    const p = (now - f.start) / PU.fxMs;
+    if (p >= 1) { fx.splice(i, 1); continue; }
+    const a = 1 - p;
+    ctx.save();
+    ctx.globalAlpha = a;
+    switch (f.type) {
+      case PU_BOMBA: {
+        const grow = (PU.bombRadius + 0.5 + p * 2) * BLOCK;
+        ctx.strokeStyle = '#ffb74d';
+        ctx.lineWidth = 3;
+        ctx.strokeRect((f.c + 0.5) * BLOCK - grow, (f.r + 0.5) * BLOCK - grow, grow * 2, grow * 2);
+        break;
+      }
+      case PU_RAYO:
+        ctx.fillStyle = '#fff59d';
+        ctx.fillRect(0, f.r * BLOCK, W, BLOCK);
+        ctx.fillRect(f.c * BLOCK, 0, BLOCK, H);
+        break;
+      case PU_TINTE:
+        ctx.globalAlpha = a * 0.5;
+        ctx.fillStyle = COLORS[f.color] || '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+        break;
+      case PU_GRAVEDAD: {
+        ctx.strokeStyle = '#81c784';
+        ctx.lineWidth = 2;
+        const y0 = p * H;
+        for (let c = 0; c < COLS; c++) {
+          ctx.beginPath();
+          ctx.moveTo((c + 0.5) * BLOCK, y0);
+          ctx.lineTo((c + 0.5) * BLOCK, y0 + BLOCK * 2);
+          ctx.stroke();
+        }
+        break;
+      }
+      case PU_CONGELAR:
+        ctx.globalAlpha = a * 0.35;
+        ctx.fillStyle = '#4dd0e1';
+        ctx.fillRect(0, 0, W, H);
+        break;
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawGrid();
 
   // board
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
       drawBlock(ctx, c, r, board[r][c], BLOCK);
+      drawDecor(ctx, c, r, BLOCK, marks[r][c], wilds[r][c]);
+    }
+  }
+
+  drawFx();
 
   // partida terminada: solo el tablero final
   if (gameOver) return;
 
   // ghost
   const gy = ghostY();
-  for (let r = 0; r < current.shape.length; r++)
-    for (let c = 0; c < current.shape[r].length; c++)
-      if (current.shape[r][c])
-        drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, 0.2);
+  for (let r = 0; r < current.shape.length; r++) {
+    for (let c = 0; c < current.shape[r].length; c++) {
+      if (!current.shape[r][c]) continue;
+      drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, 0.2);
+      drawDecor(ctx, current.x + c, gy + r, BLOCK, current.marks[r][c], false, 0.25);
+    }
+  }
 
   // current piece
-  for (let r = 0; r < current.shape.length; r++)
-    for (let c = 0; c < current.shape[r].length; c++)
+  for (let r = 0; r < current.shape.length; r++) {
+    for (let c = 0; c < current.shape[r].length; c++) {
+      if (!current.shape[r][c]) continue;
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+      drawDecor(ctx, current.x + c, current.y + r, BLOCK, current.marks[r][c], false);
+    }
+  }
 }
 
 function drawNext() {
@@ -239,13 +576,18 @@ function drawNext() {
   const shape = next.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
   const offY = Math.floor((4 - shape.length) / 2);
-  for (let r = 0; r < shape.length; r++)
-    for (let c = 0; c < shape[r].length; c++)
+  for (let r = 0; r < shape.length; r++) {
+    for (let c = 0; c < shape[r].length; c++) {
       drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
+      drawDecor(nextCtx, offX + c, offY + r, NB, next.marks[r][c], false);
+    }
+  }
 }
 
 function endGame() {
   gameOver = true;
+  freezeLeft = 0; // cancela Congelar si la pieza no puede generarse
+  updatePowerupHUD();
   cancelAnimationFrame(animId);
   animId = null;
   overlayTitle.textContent = 'GAME OVER';
@@ -260,6 +602,7 @@ function togglePause() {
     lastTime = performance.now();
     loop(lastTime);
   } else {
+    // sin frames no se acumula dt: el timer de Congelar se pausa solo
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
@@ -271,13 +614,19 @@ function loop(ts) {
   if (gameOver || paused) return;
   const dt = ts - lastTime;
   lastTime = ts;
-  dropAccum += dt;
-  if (dropAccum >= dropInterval) {
-    dropAccum = 0;
-    if (!collide(current.shape, current.x, current.y + 1)) {
-      current.y++;
-    } else {
-      lockPiece();
+  if (freezeLeft > 0) {
+    freezeLeft = Math.max(0, freezeLeft - dt);
+    dropAccum = 0; // al descongelar no cae de golpe
+    updatePowerupHUD();
+  } else {
+    dropAccum += dt;
+    if (dropAccum >= dropInterval) {
+      dropAccum = 0;
+      if (!collide(current.shape, current.x, current.y + 1)) {
+        current.y++;
+      } else {
+        lockPiece();
+      }
     }
   }
   draw();
@@ -287,7 +636,9 @@ function loop(ts) {
 }
 
 function init() {
-  board = createBoard();
+  board = createGrid(0);
+  marks = createGrid(0);
+  wilds = createGrid(false);
   score = 0;
   lines = 0;
   level = 1;
@@ -296,6 +647,11 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
+  linesSincePU = 0;
+  lastPUType = 0;
+  puPending = 0;
+  freezeLeft = 0;
+  fx = [];
   next = randomPiece();
   spawn();
   updateHUD();
@@ -305,6 +661,7 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  audio(); // el AudioContext necesita un gesto del usuario para arrancar
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
