@@ -9,6 +9,7 @@
   --text: #e0e0e0;
   --title-color: #7aa2f7;
   --title-shadow: rgba(122, 162, 247, 0.5);
+  --title-watermark: rgba(122, 162, 247, 0.07);
   --board-border: #2a2a3a;
   --board-bg: #1a1a25;
   --panel-label: #555570;
@@ -38,6 +39,7 @@
   --text: #1a1a25;
   --title-color: #3b5bdb;
   --title-shadow: rgba(59, 91, 219, 0.35);
+  --title-watermark: rgba(59, 91, 219, 0.06);
   --board-border: #c8c8d8;
   --board-bg: #ffffff;
   --panel-label: #6b6b85;
@@ -75,6 +77,27 @@ body {
 
 .wrapper {
   position: relative;
+  isolation: isolate;
+}
+
+/* marca de agua: el propio titulo repetido a gran tamano detras del contenido */
+.wrapper::before {
+  content: "TETRIS";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 160px;
+  font-weight: 900;
+  letter-spacing: 20px;
+  color: var(--title-watermark);
+  z-index: -1;
+  pointer-events: none;
+  user-select: none;
 }
 
 .title-row {
@@ -87,11 +110,11 @@ body {
 
 .game-title {
   text-align: center;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: 10px;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 12px;
   color: var(--title-color);
-  text-shadow: 0 0 20px var(--title-shadow);
+  text-shadow: 0 0 20px var(--title-shadow), 0 0 45px var(--title-shadow);
 }
 
 #theme-toggle {
@@ -303,8 +326,13 @@ kbd {
   }
 
   .game-title {
-    font-size: 24px;
-    letter-spacing: 6px;
+    font-size: 30px;
+    letter-spacing: 8px;
+  }
+
+  .wrapper::before {
+    font-size: 90px;
+    letter-spacing: 10px;
   }
 
   .title-row {
