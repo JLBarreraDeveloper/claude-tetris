@@ -586,6 +586,7 @@ function drawNext() {
 
 function endGame() {
   gameOver = true;
+  stopRepeat();
   freezeLeft = 0; // cancela Congelar si la pieza no puede generarse
   updatePowerupHUD();
   cancelAnimationFrame(animId);
@@ -603,6 +604,7 @@ function togglePause() {
     loop(lastTime);
   } else {
     // sin frames no se acumula dt: el timer de Congelar se pausa solo
+    stopRepeat();
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
@@ -652,6 +654,7 @@ function init() {
   puPending = 0;
   freezeLeft = 0;
   fx = [];
+  stopRepeat();
   next = randomPiece();
   spawn();
   updateHUD();
@@ -660,31 +663,119 @@ function init() {
   animId = requestAnimationFrame(loop);
 }
 
-document.addEventListener('keydown', e => {
+// ---- input: acciones compartidas por teclado, botones y gestos ----
+
+const ACTIONS = {
+  left:   () => { if (!collide(current.shape, current.x - 1, current.y)) current.x--; },
+  right:  () => { if (!collide(current.shape, current.x + 1, current.y)) current.x++; },
+  down:   () => softDrop(),
+  rotate: () => tryRotate(),
+  drop:   () => hardDrop(),
+};
+
+const KEYMAP = {
+  KeyP: 'pause',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowDown: 'down',
+  ArrowUp: 'rotate',
+  KeyX: 'rotate',
+  Space: 'drop',
+};
+
+function doAction(name) {
   audio(); // el AudioContext necesita un gesto del usuario para arrancar
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (name === 'pause') { togglePause(); return; }
   if (paused || gameOver) return;
-  switch (e.code) {
-    case 'ArrowLeft':
-      if (!collide(current.shape, current.x - 1, current.y)) current.x--;
-      break;
-    case 'ArrowRight':
-      if (!collide(current.shape, current.x + 1, current.y)) current.x++;
-      break;
-    case 'ArrowDown':
-      softDrop();
-      break;
-    case 'ArrowUp':
-    case 'KeyX':
-      tryRotate();
-      break;
-    case 'Space':
-      e.preventDefault();
-      hardDrop();
-      break;
-  }
+  const fn = ACTIONS[name];
+  if (!fn) return;
+  fn();
   updateHUD();
+}
+
+document.addEventListener('keydown', e => {
+  const action = KEYMAP[e.code];
+  if (!action) { audio(); return; }
+  if (e.code === 'Space') e.preventDefault();
+  doAction(action);
 });
+
+// ---- botones en pantalla ----
+
+const touchControls = document.getElementById('touch-controls');
+const REPEATABLE = { left: true, right: true, down: true };
+const DAS_DELAY = 180; // ms hasta que arranca la repeticion
+const DAS_RATE = 60;   // ms entre repeticiones
+let repeatDelayId = null, repeatIntId = null;
+
+function startRepeat(name) {
+  stopRepeat();
+  if (!REPEATABLE[name]) return;
+  repeatDelayId = setTimeout(() => {
+    repeatIntId = setInterval(() => doAction(name), DAS_RATE);
+  }, DAS_DELAY);
+}
+
+function stopRepeat() {
+  clearTimeout(repeatDelayId);
+  clearInterval(repeatIntId);
+  repeatDelayId = null;
+  repeatIntId = null;
+}
+
+touchControls.addEventListener('pointerdown', e => {
+  const btn = e.target.closest('.tbtn');
+  if (!btn) return;
+  e.preventDefault(); // evita el click fantasma y la seleccion de texto
+  btn.setPointerCapture?.(e.pointerId);
+  doAction(btn.dataset.action);
+  startRepeat(btn.dataset.action);
+});
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+  touchControls.addEventListener(ev, stopRepeat);
+}
+
+// ---- gestos sobre el tablero ----
+
+const SWIPE_STEP = 24;  // px por celda arrastrada
+const DROP_DIST = 60;   // px hacia abajo para caida dura
+const TAP_MS = 250, TAP_SLOP = 10;
+let gest = null;
+
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse') return; // en escritorio el raton no juega
+  e.preventDefault();
+  canvas.setPointerCapture?.(e.pointerId);
+  gest = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now(), moved: false };
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!gest) return;
+  let dx = e.clientX - gest.x;
+  // un mismo arrastre puede encadenar varios pasos
+  while (Math.abs(dx) >= SWIPE_STEP) {
+    const dir = dx > 0 ? 1 : -1;
+    doAction(dir > 0 ? 'right' : 'left');
+    gest.x += dir * SWIPE_STEP;
+    gest.moved = true;
+    dx -= dir * SWIPE_STEP;
+  }
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (!gest) return;
+  const dx = e.clientX - gest.x0;
+  const dy = e.clientY - gest.y0;
+  const dt = performance.now() - gest.t0;
+  if (dy >= DROP_DIST && Math.abs(dy) > Math.abs(dx)) {
+    doAction('drop');
+  } else if (!gest.moved && dt < TAP_MS && Math.hypot(dx, dy) < TAP_SLOP) {
+    doAction('rotate');
+  }
+  gest = null;
+});
+
+canvas.addEventListener('pointercancel', () => { gest = null; });
 
 restartBtn.addEventListener('click', init);
 themeToggleBtn.addEventListener('click', toggleTheme);

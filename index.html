@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Tetris</title>
   <link rel="stylesheet" href="style.css" />
   <script>
@@ -59,6 +59,19 @@
           </ul>
         </div>
       </aside>
+    </div>
+
+    <div class="touch-controls" id="touch-controls">
+      <div class="pad">
+        <button class="tbtn" data-action="left" aria-label="Mover a la izquierda">←</button>
+        <button class="tbtn" data-action="down" aria-label="Bajar">↓</button>
+        <button class="tbtn" data-action="right" aria-label="Mover a la derecha">→</button>
+      </div>
+      <div class="actions">
+        <button class="tbtn" data-action="rotate" aria-label="Rotar">⟳</button>
+        <button class="tbtn" data-action="drop" aria-label="Caída rápida">⤓</button>
+        <button class="tbtn" data-action="pause" aria-label="Pausa">⏸</button>
+      </div>
     </div>
 
     <div id="overlay" class="overlay hidden">

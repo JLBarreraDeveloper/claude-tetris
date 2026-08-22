@@ -17,6 +17,7 @@ Implementación del clásico **Tetris** en JavaScript vanilla, usando HTML5 Canv
     - [Opción 1: abrir el archivo directamente](#opción-1-abrir-el-archivo-directamente)
     - [Opción 2: servidor local (recomendado)](#opción-2-servidor-local-recomendado)
   - [Controles](#controles)
+    - [Móvil (táctil)](#móvil-táctil)
   - [Power-ups](#power-ups)
   - [Cómo funciona](#cómo-funciona)
     - [1. `index.html`](#1-indexhtml)
@@ -87,6 +88,24 @@ Después abre `http://localhost:8000` en el navegador.
 | `↓`       | Soft drop (bajar más rápido)      |
 | `Espacio` | Hard drop (caída instantánea)     |
 | `P`       | Pausar / reanudar                 |
+
+### Móvil (táctil)
+
+En pantallas pequeñas (o cualquier dispositivo táctil) el layout se reorganiza —marcadores arriba, tablero centrado— y aparecen botones en pantalla:
+
+| Botón       | Acción                        |
+| ----------- | ----------------------------- |
+| `←` `→`     | Mover (se repiten al mantener) |
+| `↓`         | Soft drop (se repite al mantener) |
+| `⟳`         | Rotar                         |
+| `⤓`         | Hard drop                     |
+| `⏸`         | Pausar / reanudar             |
+
+También funcionan los gestos sobre el tablero:
+
+- **Deslizar ← / →**: mueve la pieza una celda cada ~24 px arrastrados.
+- **Deslizar ↓**: hard drop.
+- **Tocar**: rota.
 
 ---
 
