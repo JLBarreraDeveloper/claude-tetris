@@ -1,0 +1,132 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+# Un solo triage a la vez por issue: si se edita varias veces seguidas,
+# se cancela el análisis en curso y se rehace sobre el texto final.
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    # Ignora issues creados por bots y los que ya invocan a @claude
+    # explícitamente (esos los atiende claude.yml).
+    if: |
+      github.event.issue.pull_request == null &&
+      github.event.sender.type != 'Bot' &&
+      !contains(github.event.issue.body, '@claude') &&
+      !contains(github.event.issue.title, '@claude')
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Idempotente: crea las labels de triage si faltan, las actualiza si ya existen.
+      - name: Ensure triage labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          create() { gh label create "$1" --color "$2" --description "$3" --force; }
+          create "area:gameplay"   "1d76db" "Lógica de juego: piezas, rotación, colisión, líneas"
+          create "area:render"     "0e8a16" "Canvas, dibujo, ghost piece, preview"
+          create "area:ui"         "5319e7" "HTML/CSS, HUD, overlay, controles"
+          create "area:input"      "006b75" "Teclado, pausa, reinicio"
+          create "area:ci"         "c5def5" "Workflows de GitHub Actions y tooling"
+          create "priority:high"   "b60205" "Rompe el juego o bloquea al usuario"
+          create "priority:medium" "fbca04" "Importante pero con workaround"
+          create "priority:low"    "0e8a16" "Mejora menor o cosmética"
+          create "needs-info"      "d4c5f9" "Falta información para poder diagnosticar"
+          create "triaged"         "ededed" "Analizado automáticamente por Claude"
+
+      - name: Run Claude triage
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --allowedTools "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*),Bash(gh search:*)"
+          prompt: |
+            Eres el responsable de triage de este repositorio (Tetris en JS vanilla sobre
+            Canvas: `index.html`, `style.css`, `game.js`). Lee `CLAUDE.md` antes de nada:
+            describe la arquitectura y los acoplamientos entre archivos, y lo necesitarás
+            para diagnosticar bien.
+
+            Tu tarea es analizar el issue #${{ github.event.issue.number }} del repo
+            ${{ github.repository }}, etiquetarlo y publicar un diagnóstico técnico que
+            sirva como punto de partida para implementar la solución después.
+
+            PASOS
+
+            1. Lee el issue completo:
+               `gh issue view ${{ github.event.issue.number }} --json number,title,body,labels,comments`
+            2. Lista las labels disponibles: `gh label list --limit 100`.
+               SOLO puedes usar labels que ya existan en esa lista. No inventes ni crees labels nuevas.
+            3. Investiga el código real con Read/Grep/Glob antes de opinar. No especules
+               sobre funciones o líneas sin haberlas leído. Si el issue menciona un
+               comportamiento, localiza la función concreta que lo produce.
+            4. Busca duplicados: `gh search issues --repo ${{ github.repository }} --state all "<palabras clave>"`.
+               Si encuentras uno claro, menciónalo y aplica la label `duplicate`.
+            5. Aplica las labels:
+               `gh issue edit ${{ github.event.issue.number }} --add-label "label1,label2,..."`
+               Elige, cuando apliquen: un tipo (`bug`, `enhancement`, `documentation`,
+               `question`, `duplicate`, `invalid`, `accessibility`), un área (`area:*`),
+               una prioridad (`priority:*`), y `triaged` siempre. Usa `needs-info` si el
+               issue no aporta lo mínimo para reproducir el problema.
+               No quites labels que ya haya puesto una persona.
+            6. Publica el diagnóstico como comentario:
+               `gh issue comment ${{ github.event.issue.number }} --edit-last --create-if-none --body-file <archivo>`
+               El flag `--edit-last` es obligatorio: en ediciones del issue debes ACTUALIZAR
+               tu comentario anterior, no añadir uno nuevo. Escribe el cuerpo en un fichero
+               temporal y pásalo con `--body-file` para no pelearte con el escapado.
+
+            FORMATO DEL COMENTARIO (en español, empezando exactamente con este marcador):
+
+            <!-- claude-triage -->
+            ## Diagnóstico automático
+
+            **Resumen:** una o dos frases sobre qué se pide o qué falla realmente.
+
+            **Clasificación:** tipo, área y prioridad, con una frase justificando la prioridad.
+
+            **Zona del código afectada:** rutas y funciones concretas en formato
+            `game.js:123` — `nombreFuncion()`. Si toca varios archivos, indica el
+            acoplamiento (por ejemplo canvas 300×600 ↔ `COLS`/`ROWS`/`BLOCK`).
+
+            **Causa raíz probable / punto de entrada:** qué está pasando y por qué, según
+            lo que has leído en el código. Si es una mejora, cuál es el punto de entrada
+            natural para implementarla.
+
+            **Propuesta de solución:** pasos concretos de implementación, en orden. Menciona
+            los efectos colaterales del diseño actual cuando apliquen (estado nuevo que hay
+            que resetear en `init()`, añadir a `PIECES` y `COLORS` en el mismo índice,
+            rotación no-SRS, el loop que sigue programando frames tras game over, etc.).
+
+            **Criterios de aceptación:** lista verificable de lo que debe cumplirse.
+
+            **Cómo verificar:** pasos manuales en el navegador (no hay tests automáticos).
+
+            **Riesgos y dudas abiertas:** qué se puede romper y qué falta por aclarar. Si
+            aplicaste `needs-info`, pregunta aquí lo que necesitas de forma concreta.
+
+            **Complejidad estimada:** baja / media / alta, con una frase de justificación.
+
+            REGLAS
+
+            - Escribe todo en español; el código y los identificadores en su idioma original.
+            - No modifiques ficheros del repositorio, no abras PRs y no cierres el issue.
+            - No edites el título ni el cuerpo del issue (dispararía este workflow en bucle).
+            - Sé concreto y honesto: si tras leer el código no puedes determinar la causa,
+              dilo y explica qué información falta en lugar de inventar una explicación.
