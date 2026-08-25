@@ -104,17 +104,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .game-title {
   text-align: center;
-  font-size: 44px;
+  font-size: 64px;
   font-weight: 900;
-  letter-spacing: 12px;
+  letter-spacing: 10px;
   color: var(--title-color);
-  text-shadow: 0 0 20px var(--title-shadow), 0 0 45px var(--title-shadow);
+  text-shadow: 0 0 24px var(--title-shadow), 0 0 60px var(--title-shadow);
 }
 
 #theme-toggle {
@@ -326,8 +326,8 @@ kbd {
   }
 
   .game-title {
-    font-size: 30px;
-    letter-spacing: 8px;
+    font-size: 42px;
+    letter-spacing: 6px;
   }
 
   .wrapper::before {
