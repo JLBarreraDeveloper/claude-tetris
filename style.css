@@ -5,7 +5,7 @@
 }
 
 :root {
-  --bg: #0f0f17;
+  --bg: #0f1a12;
   --text: #e0e0e0;
   --title-color: #7aa2f7;
   --title-shadow: rgba(122, 162, 247, 0.5);
@@ -35,7 +35,7 @@
 }
 
 :root.light-theme {
-  --bg: #f0f0f5;
+  --bg: #eaf5ec;
   --text: #1a1a25;
   --title-color: #3b5bdb;
   --title-shadow: rgba(59, 91, 219, 0.35);
