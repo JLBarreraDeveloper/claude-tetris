@@ -75,11 +75,57 @@
       </div>
     </div>
 
+    <div id="start-screen" class="overlay">
+      <div class="overlay-box records-box">
+        <h2 class="records-heading">Récords</h2>
+        <div class="scores-wrap">
+          <table class="scores-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Nombre</th><th>Puntos</th><th>Líneas</th><th>Nivel</th><th>Combo</th><th>Máx. líneas</th>
+              </tr>
+            </thead>
+            <tbody id="start-scores-body"></tbody>
+          </table>
+        </div>
+        <p id="start-scores-empty" class="scores-empty hidden">Aún no hay puntuaciones. ¡Sé el primero!</p>
+        <div class="records-actions">
+          <button id="start-play-btn">Jugar</button>
+          <button id="start-reset-btn" class="btn-ghost">Resetear récords</button>
+        </div>
+      </div>
+    </div>
+
     <div id="overlay" class="overlay hidden">
       <div class="overlay-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
-        <button id="restart-btn">Reiniciar</button>
+
+        <div id="name-entry" class="hidden">
+          <p class="name-entry-label">¡Nueva puntuación en el top 5!</p>
+          <input id="name-input" type="text" maxlength="10" placeholder="Tu nombre" autocomplete="off" />
+          <button id="name-save-btn">Guardar</button>
+        </div>
+
+        <div class="records-box">
+          <h2 class="records-heading">Récords</h2>
+          <div class="scores-wrap">
+            <table class="scores-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Nombre</th><th>Puntos</th><th>Líneas</th><th>Nivel</th><th>Combo</th><th>Máx. líneas</th>
+                </tr>
+              </thead>
+              <tbody id="overlay-scores-body"></tbody>
+            </table>
+          </div>
+          <p id="overlay-scores-empty" class="scores-empty hidden">Aún no hay puntuaciones. ¡Sé el primero!</p>
+        </div>
+
+        <div class="overlay-actions">
+          <button id="restart-btn">Reiniciar</button>
+          <button id="overlay-reset-btn" class="btn-ghost">Resetear récords</button>
+        </div>
       </div>
     </div>
 

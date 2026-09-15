@@ -19,7 +19,7 @@ Implementación del clásico **Tetris** en JavaScript vanilla, usando HTML5 Canv
   - [Controles](#controles)
     - [Móvil (táctil)](#móvil-táctil)
   - [Power-ups](#power-ups)
-  - [Menú de pausa](#menú-de-pausa)
+  - [Tabla de récords](#tabla-de-récords)
   - [Cómo funciona](#cómo-funciona)
     - [1. `index.html`](#1-indexhtml)
     - [2. `style.css`](#2-stylecss)
@@ -46,6 +46,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
 - **Menú de pausa completo** (reanudar, reiniciar, ver controles y nivel inicial) y **Game Over** con opción de reinicio.
 - **Sistema de power-ups**: cada 10 líneas una pieza llega con un bloque especial marcado (💣 ⚡ 🎨 ⬇ ❄) que solo se activa al eliminarlo en una línea, con **cascadas** puntuables y feedback visual y sonoro.
+- **Tabla de récords local**: top 5 puntuaciones guardadas en `localStorage`, visibles en la pantalla de inicio y en el game over, con combo máximo y líneas máximas de golpe.
 
 ---
 
@@ -148,16 +149,17 @@ Toda la parametrización vive en el objeto `PU` de `game.js`:
 
 ---
 
-## Menú de pausa
+## Tabla de récords
 
-Al pausar (`P` o `Esc`, también el botón `⏸` en táctil) se abre un menú propio, `#pause-menu`, distinto del overlay de **Game Over**:
+El juego guarda las **5 mejores puntuaciones** en `localStorage` (clave `tetris-highscores`), sin backend ni cuentas de usuario.
 
-- **Reanudar**: cierra el menú y continúa la partida donde se dejó.
-- **Reiniciar**: empieza una partida nueva sin recargar la página (equivale al botón de Game Over, pero accesible desde la pausa).
-- **Ver controles**: despliega dentro del propio menú la lista de teclas (se puede volver a ocultar con el mismo botón).
-- **Nivel inicial**: un selector de `1` a `10` que fija con qué nivel empieza la *siguiente* partida (al pulsar Reiniciar o tras un Game Over). La elección se guarda en `localStorage` y se recuerda entre sesiones. Afecta tanto al nivel mostrado en el HUD como a la velocidad de caída inicial (`dropInterval`), calculada con la misma fórmula que la subida de nivel normal.
+- **Pantalla de inicio**: antes de jugar, `#start-screen` muestra la tabla de récords sobre un tablero recién inicializado y en pausa. El botón **Jugar** arranca la partida real.
+- **Al perder**: si la puntuación final entra en el top 5, aparece un campo de texto (máx. 10 caracteres) para guardar el nombre del jugador; si no entra, no se muestra ningún campo. El último nombre usado se recuerda en `localStorage` (`tetris-last-name`) como sugerencia para la próxima vez.
+- **Resaltado**: al guardar, la fila recién insertada se resalta en la tabla del game over.
+- **Reset**: un botón "Resetear récords" (en la pantalla de inicio y en el game over) borra toda la tabla tras confirmar con un `confirm()`.
+- **Estadísticas por partida**: cada entrada guarda, además del nombre, la puntuación, las líneas y el nivel, el **mejor combo** (líneas seguidas eliminadas sin fallar una pieza) y las **máximas líneas eliminadas de golpe** en esa partida.
 
-Mientras el menú está abierto, el juego queda realmente congelado: no se procesan movimientos, rotaciones, gestos táctiles ni la repetición de botones (DAS) de las flechas, aunque el foco esté dentro de un control del menú (por ejemplo, las flechas dentro del `<select>` de nivel no mueven la pieza). `Esc`/`P` siguen funcionando para cerrar el menú incluso con el foco en uno de sus controles.
+Toda la lógica vive en la sección `// ---- records ----` de `game.js`: `loadScores` / `saveScores` leen y escriben en `localStorage` de forma defensiva (con `try/catch` y validación de forma, por si el dato es de una versión anterior o está corrupto), `qualifies` decide si una puntuación entra en el top 5, y `renderScores` pinta la tabla con `textContent`/`createElement` (nunca `innerHTML`) para evitar inyectar HTML desde el nombre introducido por el jugador.
 
 ---
 
