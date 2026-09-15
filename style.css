@@ -32,6 +32,12 @@
   --tbtn-border: #3a3a5a;
   --tbtn-color: #c8c8e0;
   --tbtn-active: #3a3a5a;
+  --table-header-bg: #1e1e2c;
+  --table-border: #2e2e42;
+  --score-highlight-bg: rgba(122, 162, 247, 0.22);
+  --score-highlight-border: #7aa2f7;
+  --btn-ghost-color: #9a9ab5;
+  --btn-ghost-border: #3a3a5a;
 }
 
 :root.light-theme {
@@ -62,6 +68,12 @@
   --tbtn-border: #c8c8d8;
   --tbtn-color: #333344;
   --tbtn-active: #c8c8d8;
+  --table-header-bg: #eceef7;
+  --table-border: #d4d4e2;
+  --score-highlight-bg: rgba(59, 91, 219, 0.14);
+  --score-highlight-border: #3b5bdb;
+  --btn-ghost-color: #6b6b85;
+  --btn-ghost-border: #c8c8d8;
 }
 
 body {
@@ -242,6 +254,9 @@ kbd {
   flex-direction: column;
   gap: 12px;
   align-items: center;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 16px;
 }
 
 #overlay-title {
@@ -390,6 +405,171 @@ kbd {
   .touch-controls {
     display: flex;
   }
+
+  .records-box {
+    max-width: 88vw;
+  }
+
+  .scores-table {
+    font-size: 11px;
+  }
+
+  .scores-table th,
+  .scores-table td {
+    padding: 4px 5px;
+  }
+}
+
+/* ---- Records ---- */
+
+.hidden {
+  display: none;
+}
+
+.records-box {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.records-heading {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--panel-label);
+  text-align: center;
+}
+
+.scores-wrap {
+  overflow-x: auto;
+}
+
+.scores-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.scores-table th,
+.scores-table td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--table-border);
+}
+
+.scores-table th {
+  background: var(--table-header-bg);
+  color: var(--panel-label);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.scores-table td {
+  color: var(--text);
+}
+
+.scores-table tr.score-new td {
+  background: var(--score-highlight-bg);
+  color: var(--score-highlight-border);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--score-highlight-border);
+}
+
+.scores-empty {
+  text-align: center;
+  font-size: 13px;
+  color: var(--panel-label);
+}
+
+.records-actions,
+.overlay-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-ghost {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--btn-ghost-color);
+  border: 1px solid var(--btn-ghost-border);
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-ghost:hover {
+  border-color: var(--score-highlight-border);
+  color: var(--score-highlight-border);
+}
+
+#name-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--table-header-bg);
+  border: 1px solid var(--table-border);
+  border-radius: 8px;
+}
+
+/* el selector de id de arriba pesa mas que .hidden solo: override explicito */
+#name-entry.hidden {
+  display: none;
+}
+
+/* #overlay se reutiliza para PAUSA y GAME OVER (ver togglePause/endGame);
+   records, reset y el formulario de nombre solo deben verse en game over */
+#overlay:not(.is-gameover) .records-box,
+#overlay:not(.is-gameover) #name-entry,
+#overlay:not(.is-gameover) #overlay-reset-btn {
+  display: none;
+}
+
+.name-entry-label {
+  font-size: 13px;
+  color: var(--overlay-score);
+  font-weight: 600;
+}
+
+#name-input {
+  width: 160px;
+  text-align: center;
+  background: var(--board-bg);
+  color: var(--text);
+  border: 1px solid var(--table-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+#name-save-btn {
+  background: var(--restart-bg);
+  color: var(--restart-color);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#name-save-btn:hover {
+  background: var(--restart-hover);
 }
 
 /* ---- Skins ---- */

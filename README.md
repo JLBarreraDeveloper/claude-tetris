@@ -19,7 +19,7 @@ Implementación del clásico **Tetris** en JavaScript vanilla, usando HTML5 Canv
   - [Controles](#controles)
     - [Móvil (táctil)](#móvil-táctil)
   - [Power-ups](#power-ups)
-  - [Skins (temas visuales)](#skins-temas-visuales)
+  - [Tabla de récords](#tabla-de-récords)
   - [Cómo funciona](#cómo-funciona)
     - [1. `index.html`](#1-indexhtml)
     - [2. `style.css`](#2-stylecss)
@@ -46,6 +46,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
 - **Pausa** y **Game Over** con opción de reinicio.
 - **Sistema de power-ups**: cada 10 líneas una pieza llega con un bloque especial marcado (💣 ⚡ 🎨 ⬇ ❄) que solo se activa al eliminarlo en una línea, con **cascadas** puntuables y feedback visual y sonoro.
+- **Tabla de récords local**: top 5 puntuaciones guardadas en `localStorage`, visibles en la pantalla de inicio y en el game over, con combo máximo y líneas máximas de golpe.
 
 ---
 
@@ -148,18 +149,17 @@ Toda la parametrización vive en el objeto `PU` de `game.js`:
 
 ---
 
-## Skins (temas visuales)
+## Tabla de récords
 
-El selector **SKIN** del panel lateral cambia por completo la apariencia del tablero, la pieza fantasma, la vista previa y las animaciones de power-up, sin recargar la página:
+El juego guarda las **5 mejores puntuaciones** en `localStorage` (clave `tetris-highscores`), sin backend ni cuentas de usuario.
 
-| Skin       | Aspecto                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------- |
-| **Retro**  | Bloques cuadrados y colores planos, el estilo original.                                        |
-| **Neón**   | Fondo casi negro y bloques con brillo (`shadowBlur` del canvas), paleta saturada tipo arcade.   |
-| **Pastel** | Colores suaves y esquinas redondeadas (`roundRect`, con reserva a `fillRect` si el navegador no lo soporta). |
-| **Píxel**  | Textura tipo sprite 8-bit dibujada sobre cada bloque, con un mosaico de tonos claros/oscuros.   |
+- **Pantalla de inicio**: antes de jugar, `#start-screen` muestra la tabla de récords sobre un tablero recién inicializado y en pausa. El botón **Jugar** arranca la partida real.
+- **Al perder**: si la puntuación final entra en el top 5, aparece un campo de texto (máx. 10 caracteres) para guardar el nombre del jugador; si no entra, no se muestra ningún campo. El último nombre usado se recuerda en `localStorage` (`tetris-last-name`) como sugerencia para la próxima vez.
+- **Resaltado**: al guardar, la fila recién insertada se resalta en la tabla del game over.
+- **Reset**: un botón "Resetear récords" (en la pantalla de inicio y en el game over) borra toda la tabla tras confirmar con un `confirm()`.
+- **Estadísticas por partida**: cada entrada guarda, además del nombre, la puntuación, las líneas y el nivel, el **mejor combo** (líneas seguidas eliminadas sin fallar una pieza) y las **máximas líneas eliminadas de golpe** en esa partida.
 
-Cada skin define su propia paleta de 7 colores (uno por tipo de pieza), su color de rejilla y su función de dibujo por celda; todo vive en el objeto `SKINS` de `game.js`. La preferencia se guarda en `localStorage` (clave `tetris-skin`) y se restaura al recargar mediante un pequeño script en el `<head>` de `index.html` que fija el atributo `data-skin` en `<html>` antes de pintar la página, evitando el parpadeo del fondo. Los estilos de la interfaz (fondo, bordes del tablero, color del título) se ajustan por skin con variables CSS bajo `:root[data-skin="..."]` en `style.css`, y conviven con el interruptor de tema claro/oscuro existente.
+Toda la lógica vive en la sección `// ---- records ----` de `game.js`: `loadScores` / `saveScores` leen y escriben en `localStorage` de forma defensiva (con `try/catch` y validación de forma, por si el dato es de una versión anterior o está corrupto), `qualifies` decide si una puntuación entra en el top 5, y `renderScores` pinta la tabla con `textContent`/`createElement` (nunca `innerHTML`) para evitar inyectar HTML desde el nombre introducido por el jugador.
 
 ---
 
