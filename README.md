@@ -19,6 +19,7 @@ Implementación del clásico **Tetris** en JavaScript vanilla, usando HTML5 Canv
   - [Controles](#controles)
     - [Móvil (táctil)](#móvil-táctil)
   - [Power-ups](#power-ups)
+  - [Skins (temas visuales)](#skins-temas-visuales)
   - [Cómo funciona](#cómo-funciona)
     - [1. `index.html`](#1-indexhtml)
     - [2. `style.css`](#2-stylecss)
@@ -147,6 +148,21 @@ Toda la parametrización vive en el objeto `PU` de `game.js`:
 
 ---
 
+## Skins (temas visuales)
+
+El selector **SKIN** del panel lateral cambia por completo la apariencia del tablero, la pieza fantasma, la vista previa y las animaciones de power-up, sin recargar la página:
+
+| Skin       | Aspecto                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| **Retro**  | Bloques cuadrados y colores planos, el estilo original.                                        |
+| **Neón**   | Fondo casi negro y bloques con brillo (`shadowBlur` del canvas), paleta saturada tipo arcade.   |
+| **Pastel** | Colores suaves y esquinas redondeadas (`roundRect`, con reserva a `fillRect` si el navegador no lo soporta). |
+| **Píxel**  | Textura tipo sprite 8-bit dibujada sobre cada bloque, con un mosaico de tonos claros/oscuros.   |
+
+Cada skin define su propia paleta de 7 colores (uno por tipo de pieza), su color de rejilla y su función de dibujo por celda; todo vive en el objeto `SKINS` de `game.js`. La preferencia se guarda en `localStorage` (clave `tetris-skin`) y se restaura al recargar mediante un pequeño script en el `<head>` de `index.html` que fija el atributo `data-skin` en `<html>` antes de pintar la página, evitando el parpadeo del fondo. Los estilos de la interfaz (fondo, bordes del tablero, color del título) se ajustan por skin con variables CSS bajo `:root[data-skin="..."]` en `style.css`, y conviven con el interruptor de tema claro/oscuro existente.
+
+---
+
 ## Cómo funciona
 
 El juego se compone de tres archivos que cooperan:
@@ -233,7 +249,7 @@ Algunos parámetros fáciles de tunear en `game.js`:
 | `COLS`         | Columnas del tablero                     | `10`                  |
 | `ROWS`         | Filas del tablero                        | `20`                  |
 | `BLOCK`        | Tamaño en píxeles de cada celda          | `30`                  |
-| `COLORS`       | Paleta de colores por tipo de pieza      | 7 colores             |
+| `SKINS`        | Paletas y funciones de dibujo por skin   | `retro` / `neon` / `pastel` / `pixel` |
 | `LINE_SCORES`  | Puntos por 1, 2, 3 o 4 líneas eliminadas | `[0,100,300,500,800]` |
 | `dropInterval` | Velocidad inicial de caída en ms         | `1000`                |
 | `PU`           | Configuración de los power-ups           | ver [Power-ups](#power-ups) |
