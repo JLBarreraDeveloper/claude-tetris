@@ -572,76 +572,84 @@ kbd {
   background: var(--restart-hover);
 }
 
-/* ---- Skins ---- */
+/* ---- Menu de pausa ---- */
+.pause-menu-box {
+  min-width: 220px;
+  padding: 4px 12px;
+}
 
-#skin-select {
-  background: var(--toggle-bg);
-  border: 1px solid var(--toggle-border);
-  color: var(--text);
+.pause-menu-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--overlay-title);
+}
+
+.pause-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-btn {
+  background: var(--restart-bg);
+  color: var(--restart-color);
+  border: none;
   border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 12px;
-  font-family: inherit;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: background 0.15s;
 }
 
-/* neon: tablero casi negro para que el shadowBlur del canvas resalte */
-:root[data-skin="neon"] {
-  --bg: #05050a;
-  --board-bg: #050508;
-  --board-border: #17172a;
-  --title-color: #00e5ff;
-  --title-shadow: rgba(0, 229, 255, 0.55);
-  --title-watermark: rgba(0, 229, 255, 0.07);
+.menu-btn:hover {
+  background: var(--restart-hover);
 }
 
-:root[data-skin="neon"].light-theme {
-  --bg: #10101c;
-  --text: #e8e8f5;
-  --board-bg: #05050a;
-  --board-border: #17172a;
-  --title-color: #00e5ff;
-  --title-shadow: rgba(0, 229, 255, 0.55);
-  --title-watermark: rgba(0, 229, 255, 0.07);
-  --panel-label: #7fa8c9;
-  --panel-value: #00e5ff;
-  --controls-color: #99a;
-  --overlay-bg: rgba(5, 5, 10, 0.85);
+.pause-controls-list ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
 }
 
-/* pastel: fondo claro y suave incluso en modo oscuro */
-:root[data-skin="pastel"] {
-  --bg: #fbf3f6;
-  --text: #4a3f4d;
-  --board-bg: #fffdfb;
-  --board-border: #f0d9e8;
-  --title-color: #e895c0;
-  --title-shadow: rgba(232, 149, 192, 0.35);
-  --title-watermark: rgba(232, 149, 192, 0.08);
-  --panel-label: #a98fae;
-  --panel-value: #d97ab0;
-  --controls-color: #8a7a8d;
-  --kbd-bg: #f6e9ef;
-  --kbd-border: #f0d9e8;
-  --kbd-color: #7a6a7d;
-  --overlay-bg: rgba(255, 250, 253, 0.85);
-  --restart-bg: #e895c0;
-  --restart-color: #ffffff;
-  --restart-hover: #f0a8cd;
-  --toggle-bg: #f6e9ef;
-  --toggle-border: #f0d9e8;
-  --tbtn-bg: #f6e9ef;
-  --tbtn-border: #f0d9e8;
-  --tbtn-color: #7a6a7d;
-  --tbtn-active: #f0d9e8;
+.pause-controls-list li {
+  font-size: 12px;
+  color: var(--controls-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
-:root[data-skin="pastel"].light-theme {
-  --bg: #fdf8fa;
-  --board-bg: #ffffff;
+.pause-controls-list.hidden {
+  display: none;
 }
 
-/* pixel: paleta identica a retro, el toque va todo en el canvas (textura de bloque) */
-:root[data-skin="pixel"] {
-  --board-border: #3a3f4b;
+.pause-menu-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pause-menu-level label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--panel-label);
+  font-weight: 600;
+}
+
+.pause-menu-level select {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: inherit;
 }
