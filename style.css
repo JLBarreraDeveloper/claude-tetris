@@ -391,3 +391,85 @@ kbd {
     display: flex;
   }
 }
+
+/* ---- Menu de pausa ---- */
+.pause-menu-box {
+  min-width: 220px;
+  padding: 4px 12px;
+}
+
+.pause-menu-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--overlay-title);
+}
+
+.pause-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-btn {
+  background: var(--restart-bg);
+  color: var(--restart-color);
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: background 0.15s;
+}
+
+.menu-btn:hover {
+  background: var(--restart-hover);
+}
+
+.pause-controls-list ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.pause-controls-list li {
+  font-size: 12px;
+  color: var(--controls-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pause-controls-list.hidden {
+  display: none;
+}
+
+.pause-menu-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pause-menu-level label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--panel-label);
+  font-weight: 600;
+}
+
+.pause-menu-level select {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}

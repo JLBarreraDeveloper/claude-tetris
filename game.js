@@ -30,6 +30,8 @@ const LINE_SCORES = [0, 100, 300, 500, 800];
 
 const GRID_COLORS = { dark: '#22222e', light: '#d8d8e5' };
 const THEME_KEY = 'tetris-theme';
+const START_LEVEL_KEY = 'tetris-start-level';
+const MAX_START_LEVEL = 10;
 
 // ---- power-ups: toda la configuracion en un unico objeto ----
 const PU = {
@@ -67,11 +69,19 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const controlsToggleBtn = document.getElementById('controls-toggle-btn');
+const pauseControlsList = document.getElementById('pause-controls-list');
+const startLevelSelect = document.getElementById('start-level-select');
 
 let board, marks, wilds, current, next, score, lines, level, paused, gameOver;
 let lastTime, dropAccum, dropInterval, animId;
 let linesSincePU, lastPUType, puPending, freezeLeft, fx;
 let audioCtx = null;
+let startLevel = loadStartLevel(); // preferencia persistida, no se resetea en init()
+let roundStartLevel; // copia de startLevel congelada al iniciar la partida (ver init())
 
 function createGrid(fill) {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(fill));
@@ -280,7 +290,9 @@ function resolveClears() {
     score += gained;
     lines += totalCleared;
     linesSincePU += totalCleared;
-    level = Math.floor(lines / 10) + 1;
+    // usa roundStartLevel (congelado en init), no startLevel: cambiar el
+    // selector del menu de pausa a mitad de partida no debe alterar la actual
+    level = roundStartLevel + Math.floor(lines / 10);
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     refreshPending();
     updateHUD();
@@ -596,19 +608,55 @@ function endGame() {
   overlay.classList.remove('hidden');
 }
 
+// ---- menu de pausa ----
+
+function loadStartLevel() {
+  try {
+    const raw = parseInt(localStorage.getItem(START_LEVEL_KEY), 10);
+    if (raw >= 1 && raw <= MAX_START_LEVEL) return raw;
+  } catch (e) {}
+  return 1;
+}
+
+function saveStartLevel(v) {
+  try { localStorage.setItem(START_LEVEL_KEY, String(v)); } catch (e) {}
+}
+
+function collapseControlsList() {
+  pauseControlsList.classList.add('hidden');
+  controlsToggleBtn.setAttribute('aria-expanded', 'false');
+  controlsToggleBtn.textContent = 'Ver controles';
+}
+
+function toggleControlsList() {
+  const expanded = controlsToggleBtn.getAttribute('aria-expanded') === 'true';
+  controlsToggleBtn.setAttribute('aria-expanded', String(!expanded));
+  controlsToggleBtn.textContent = expanded ? 'Ver controles' : 'Ocultar controles';
+  pauseControlsList.classList.toggle('hidden', expanded);
+}
+
+function openPauseMenu() {
+  collapseControlsList();
+  startLevelSelect.value = String(startLevel);
+  pauseMenu.classList.remove('hidden');
+}
+
+function closePauseMenu() {
+  pauseMenu.classList.add('hidden');
+}
+
 function togglePause() {
   if (gameOver) return;
   paused = !paused;
   if (!paused) {
+    closePauseMenu();
     lastTime = performance.now();
     loop(lastTime);
   } else {
     // sin frames no se acumula dt: el timer de Congelar se pausa solo
     stopRepeat();
     cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
+    openPauseMenu();
   }
 }
 
@@ -643,10 +691,11 @@ function init() {
   wilds = createGrid(false);
   score = 0;
   lines = 0;
-  level = 1;
+  roundStartLevel = startLevel; // congela la preferencia actual para esta partida
+  level = roundStartLevel;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = Math.max(100, 1000 - (roundStartLevel - 1) * 90);
   dropAccum = 0;
   lastTime = performance.now();
   linesSincePU = 0;
@@ -659,6 +708,8 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  closePauseMenu();
+  collapseControlsList();
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
@@ -675,6 +726,7 @@ const ACTIONS = {
 
 const KEYMAP = {
   KeyP: 'pause',
+  Escape: 'pause',
   ArrowLeft: 'left',
   ArrowRight: 'right',
   ArrowDown: 'down',
@@ -695,6 +747,9 @@ function doAction(name) {
 
 document.addEventListener('keydown', e => {
   const action = KEYMAP[e.code];
+  // dentro del menu solo la tecla de pausa hace algo: el resto queda para
+  // el comportamiento nativo del control enfocado (select, boton)
+  if (e.target.closest('#pause-menu') && action !== 'pause') return;
   if (!action) { audio(); return; }
   if (e.code === 'Space') e.preventDefault();
   doAction(action);
@@ -710,7 +765,7 @@ let repeatDelayId = null, repeatIntId = null;
 
 function startRepeat(name) {
   stopRepeat();
-  if (!REPEATABLE[name]) return;
+  if (paused || gameOver || !REPEATABLE[name]) return;
   repeatDelayId = setTimeout(() => {
     repeatIntId = setInterval(() => doAction(name), DAS_RATE);
   }, DAS_DELAY);
@@ -743,6 +798,7 @@ const TAP_MS = 250, TAP_SLOP = 10;
 let gest = null;
 
 canvas.addEventListener('pointerdown', e => {
+  if (paused || gameOver) return; // menu de pausa o game over: sin gestos
   if (e.pointerType === 'mouse') return; // en escritorio el raton no juega
   e.preventDefault();
   canvas.setPointerCapture?.(e.pointerId);
@@ -779,6 +835,15 @@ canvas.addEventListener('pointercancel', () => { gest = null; });
 
 restartBtn.addEventListener('click', init);
 themeToggleBtn.addEventListener('click', toggleTheme);
+
+resumeBtn.addEventListener('click', () => { if (paused) togglePause(); });
+pauseRestartBtn.addEventListener('click', init);
+controlsToggleBtn.addEventListener('click', toggleControlsList);
+startLevelSelect.addEventListener('change', () => {
+  const v = parseInt(startLevelSelect.value, 10);
+  startLevel = (v >= 1 && v <= MAX_START_LEVEL) ? v : 1;
+  saveStartLevel(startLevel);
+});
 
 updateThemeToggleUI();
 init();
