@@ -21,6 +21,12 @@ const THEME_KEY = 'tetris-theme';
 const START_LEVEL_KEY = 'tetris-start-level';
 const MAX_START_LEVEL = 10;
 
+// ---- records: claves de almacenamiento y limites ----
+const HS_KEY = 'tetris-highscores';
+const NAME_KEY = 'tetris-last-name';
+const MAX_SCORES = 5;
+const NAME_MAX_LEN = 10;
+
 // ---- skins: paleta + funcion de dibujo por celda, todo intercambiable en caliente ----
 // cada paleta mantiene la forma [null, c1..c7]: el indice es el mismo que el tipo de pieza
 // ojo: los nombres de skin tambien estan hardcodeados en el script del <head> de index.html
@@ -91,6 +97,7 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const skinSelect = document.getElementById('skin-select');
 const pauseMenu = document.getElementById('pause-menu');
 const resumeBtn = document.getElementById('resume-btn');
 const pauseRestartBtn = document.getElementById('pause-restart-btn');
