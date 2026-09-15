@@ -12,6 +12,12 @@
         if (localStorage.getItem('tetris-theme') === 'light') {
           document.documentElement.classList.add('light-theme');
         }
+        // lista de skins duplicada del objeto SKINS en game.js (no hay modulos que compartirla);
+        // si se agrega una skin nueva alli, agregarla tambien aqui para evitar el flash del fondo
+        var skin = localStorage.getItem('tetris-skin');
+        if (skin === 'neon' || skin === 'pastel' || skin === 'pixel' || skin === 'retro') {
+          document.documentElement.setAttribute('data-skin', skin);
+        }
       } catch (e) {}
     })();
   </script>
@@ -42,6 +48,16 @@
         <div class="panel-section">
           <span class="label">POWER-UP</span>
           <span class="value" id="powerup-badge">—</span>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">SKIN</span>
+          <select id="skin-select" aria-label="Elegir skin">
+            <option value="retro">Retro</option>
+            <option value="neon">Neón</option>
+            <option value="pastel">Pastel</option>
+            <option value="pixel">Píxel</option>
+          </select>
         </div>
 
         <div class="panel-section">

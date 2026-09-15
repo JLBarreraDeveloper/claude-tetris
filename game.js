@@ -4,17 +4,6 @@ const COLS = 10;
 const ROWS = 20;
 const BLOCK = 30;
 
-const COLORS = [
-  null,
-  '#4dd0e1', // I - cyan
-  '#ffd54f', // O - yellow
-  '#ba68c8', // T - purple
-  '#81c784', // S - green
-  '#e57373', // Z - red
-  '#90caf9', // J - blue
-  '#ffb74d', // L - orange
-];
-
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
@@ -28,16 +17,43 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
-const GRID_COLORS = { dark: '#22222e', light: '#d8d8e5' };
 const THEME_KEY = 'tetris-theme';
 const START_LEVEL_KEY = 'tetris-start-level';
 const MAX_START_LEVEL = 10;
 
-// ---- records: claves de almacenamiento y limites ----
-const HS_KEY = 'tetris-highscores';
-const NAME_KEY = 'tetris-last-name';
-const MAX_SCORES = 5;
-const NAME_MAX_LEN = 10;
+// ---- skins: paleta + funcion de dibujo por celda, todo intercambiable en caliente ----
+// cada paleta mantiene la forma [null, c1..c7]: el indice es el mismo que el tipo de pieza
+// ojo: los nombres de skin tambien estan hardcodeados en el script del <head> de index.html
+// (evita el flash del fondo antes de que este script cargue); si agregas una skin, actualiza ambos
+const SKINS = {
+  retro: {
+    label: 'Retro',
+    colors: [null, '#4dd0e1', '#ffd54f', '#ba68c8', '#81c784', '#e57373', '#90caf9', '#ffb74d'],
+    grid: { dark: '#22222e', light: '#d8d8e5' },
+    drawCell: drawCellRetro,
+  },
+  neon: {
+    label: 'Neón',
+    colors: [null, '#00e5ff', '#ffee00', '#e040fb', '#00e676', '#ff1744', '#2979ff', '#ff9100'],
+    grid: { dark: '#0a0a12', light: '#161628' },
+    drawCell: drawCellNeon,
+  },
+  pastel: {
+    label: 'Pastel',
+    colors: [null, '#a8e6ef', '#fff2b8', '#ddbdee', '#c3ecc6', '#f5c2c2', '#c3d9f7', '#f8d9ae'],
+    grid: { dark: '#2c2a33', light: '#ecdff0' },
+    drawCell: drawCellPastel,
+  },
+  pixel: {
+    label: 'Píxel',
+    colors: [null, '#4dd0e1', '#ffd54f', '#ba68c8', '#81c784', '#e57373', '#90caf9', '#ffb74d'],
+    grid: { dark: '#22222e', light: '#d8d8e5' },
+    drawCell: drawCellPixel,
+  },
+};
+
+const SKIN_KEY = 'tetris-skin';
+let currentSkin = 'retro';
 
 // ---- power-ups: toda la configuracion en un unico objeto ----
 const PU = {
@@ -419,16 +435,107 @@ function updateHUD() {
   updatePowerupHUD();
 }
 
+// bloque cuadrado plano, estilo original
+function drawCellRetro(context, x, y, size, color, alpha) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  context.globalAlpha = alpha;
+  context.fillStyle = color;
+  context.fillRect(px, py, s, s);
+  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillRect(px, py, s, 4);
+  context.globalAlpha = 1;
+}
+
+// fondo oscuro + shadowBlur para el brillo; el llamador ya envuelve en save/restore
+function drawCellNeon(context, x, y, size, color, alpha) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  context.globalAlpha = alpha;
+  context.shadowColor = color;
+  context.shadowBlur = size * 0.6;
+  context.fillStyle = color;
+  context.fillRect(px, py, s, s);
+  context.shadowBlur = 0;
+  context.strokeStyle = 'rgba(255,255,255,0.7)';
+  context.lineWidth = 1;
+  context.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
+  context.globalAlpha = 1;
+}
+
+// colores suaves con esquinas redondeadas (fallback a fillRect si roundRect no existe)
+function drawCellPastel(context, x, y, size, color, alpha) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  const r = Math.max(2, size * 0.22);
+  context.globalAlpha = alpha;
+  context.fillStyle = color;
+  if (context.roundRect) {
+    context.beginPath();
+    context.roundRect(px, py, s, s, r);
+    context.fill();
+  } else {
+    context.fillRect(px, py, s, s);
+  }
+  context.fillStyle = 'rgba(255,255,255,0.4)';
+  if (context.roundRect) {
+    context.beginPath();
+    context.roundRect(px, py, s, Math.max(3, s * 0.35), r);
+    context.fill();
+  } else {
+    context.fillRect(px, py, s, 4);
+  }
+  context.globalAlpha = 1;
+}
+
+// aclara (percent > 0) u oscurece (percent < 0) un color '#rrggbb'
+// memoizado: la skin pixel llama esto por celda y frame, pero la paleta es fija (7 colores x 2 tonos)
+const shadeCache = new Map();
+function shadeColor(hex, percent) {
+  const key = hex + '|' + percent;
+  const cached = shadeCache.get(key);
+  if (cached) return cached;
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+  const t = percent < 0 ? 0 : 255;
+  const p = Math.abs(percent);
+  r = Math.round((t - r) * p) + r;
+  g = Math.round((t - g) * p) + g;
+  b = Math.round((t - b) * p) + b;
+  const result = `rgb(${r},${g},${b})`;
+  shadeCache.set(key, result);
+  return result;
+}
+
+// trama de mosaico tipo sprite 8-bit, escalada proporcionalmente al tamano de celda
+function drawCellPixel(context, x, y, size, color, alpha) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  context.globalAlpha = alpha;
+  context.fillStyle = color;
+  context.fillRect(px, py, s, s);
+
+  const cell = Math.max(2, Math.floor(s / 4));
+  const light = shadeColor(color, 0.25);
+  const dark = shadeColor(color, -0.25);
+  for (let ry = 0; ry < s; ry += cell) {
+    for (let rx = 0; rx < s; rx += cell) {
+      const checker = ((rx / cell) + (ry / cell)) % 2;
+      context.globalAlpha = alpha * 0.3;
+      context.fillStyle = checker === 0 ? light : dark;
+      context.fillRect(px + rx, py + ry, cell, cell);
+    }
+  }
+  context.globalAlpha = alpha;
+  context.strokeStyle = 'rgba(0,0,0,0.5)';
+  context.lineWidth = 1;
+  context.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
+  context.globalAlpha = 1;
+}
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
-  context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
-  context.globalAlpha = 1;
+  const skin = SKINS[currentSkin];
+  const color = skin.colors[colorIndex];
+  context.save();
+  skin.drawCell(context, x, y, size, color, alpha ?? 1);
+  context.restore();
 }
 
 // marca de power-up y/o comodin sobre una celda ya pintada
@@ -499,8 +606,36 @@ function toggleTheme() {
   drawNext();
 }
 
+// valida el nombre contra las skins conocidas antes de usarlo
+function loadStoredSkin() {
+  try {
+    const stored = localStorage.getItem(SKIN_KEY);
+    if (stored && SKINS[stored]) return stored;
+  } catch (e) {}
+  return 'retro';
+}
+
+// solo actualiza el estado (variable + atributo + select), sin redibujar
+function setSkin(name, persist) {
+  if (!SKINS[name]) name = 'retro';
+  currentSkin = name;
+  document.documentElement.setAttribute('data-skin', name);
+  if (skinSelect) skinSelect.value = name;
+  if (persist) {
+    try { localStorage.setItem(SKIN_KEY, name); } catch (e) {}
+  }
+}
+
+// cambio de skin sin recargar: aplica y redibuja ambos canvases al instante
+function applySkin(name) {
+  setSkin(name, true);
+  draw();
+  drawNext();
+}
+
 function drawGrid() {
-  ctx.strokeStyle = isLightTheme() ? GRID_COLORS.light : GRID_COLORS.dark;
+  const grid = SKINS[currentSkin].grid;
+  ctx.strokeStyle = isLightTheme() ? grid.light : grid.dark;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -543,7 +678,7 @@ function drawFx() {
         break;
       case PU_TINTE:
         ctx.globalAlpha = a * 0.5;
-        ctx.fillStyle = COLORS[f.color] || '#ffffff';
+        ctx.fillStyle = SKINS[currentSkin].colors[f.color] || '#ffffff';
         ctx.fillRect(0, 0, W, H);
         break;
       case PU_GRAVEDAD: {
@@ -908,7 +1043,7 @@ function doAction(name) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.target && e.target.tagName === 'INPUT') return; // no interceptar mientras se escribe el nombre
+  if (document.activeElement === skinSelect) return; // no pelear con la navegacion del <select>
   const action = KEYMAP[e.code];
   // dentro del menu solo la tecla de pausa hace algo: el resto queda para
   // el comportamiento nativo del control enfocado (select, boton)
@@ -998,12 +1133,9 @@ canvas.addEventListener('pointercancel', () => { gest = null; });
 
 restartBtn.addEventListener('click', init);
 themeToggleBtn.addEventListener('click', toggleTheme);
-startPlayBtn.addEventListener('click', init);
-startResetBtn.addEventListener('click', resetScores);
-overlayResetBtn.addEventListener('click', resetScores);
-nameSaveBtn.addEventListener('click', saveScoreEntry);
-nameInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); saveScoreEntry(); }
+skinSelect?.addEventListener('change', () => {
+  applySkin(skinSelect.value);
+  skinSelect.blur(); // devuelve el foco al documento para que las flechas vuelvan a mover la pieza
 });
 
 resumeBtn.addEventListener('click', () => { if (paused) togglePause(); });
@@ -1016,4 +1148,5 @@ startLevelSelect.addEventListener('change', () => {
 });
 
 updateThemeToggleUI();
-showStartScreen();
+setSkin(loadStoredSkin(), false); // el atributo data-skin ya lo puso el script del <head>
+init();
